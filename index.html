@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Despensa & Compras</title>
+<style>
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
+--bg:#f7f5f0;--card:#fff;--ink:#1f2a24;--mut:#6b756e;--line:#e4e0d6;--acc:#2f7d5b;--accink:#fff;--warn:#c9741a;--bad:#b83c3c}
+:root:not([data-theme="light"]){}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){color-scheme:dark;--bg:#151a17;--card:#1f2622;--ink:#eef2ee;--mut:#98a39b;--line:#2f3832;--acc:#58b88a;--accink:#0e1a13;--warn:#e0953f;--bad:#e06b6b}}
+:root[data-theme="dark"]{color-scheme:dark;--bg:#151a17;--card:#1f2622;--ink:#eef2ee;--mut:#98a39b;--line:#2f3832;--acc:#58b88a;--accink:#0e1a13;--warn:#e0953f;--bad:#e06b6b}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*,*:before,*:after{box-sizing:inherit}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+main{max-width:640px;margin:0 auto;padding:16px 16px 48px}
+h1{font-size:22px;margin:4px 0 2px}
+.sub{color:var(--mut);font-size:14px;margin:0 0 14px}
+.tabs{display:flex;gap:6px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:4px;margin-bottom:14px;position:sticky;top:env(safe-area-inset-top,0px);z-index:5}
+.tabs button{flex:1;border:0;background:none;color:var(--mut);font:inherit;font-size:14px;padding:9px 4px;border-radius:10px;cursor:pointer}
+.tabs button.on{background:var(--acc);color:var(--accink);font-weight:600}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px;margin-bottom:14px}
+.card h2{font-size:16px;margin:0 0 8px}
+.btn{border:1px solid var(--line);background:var(--card);color:var(--ink);font:inherit;font-size:14px;padding:9px 14px;border-radius:10px;cursor:pointer}
+.btn.pri{background:var(--acc);color:var(--accink);border-color:var(--acc);font-weight:600}
+.btn:disabled{opacity:.5}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.thumbs{display:flex;gap:8px;overflow-x:auto;margin:10px 0}
+.thumbs img{height:72px;width:72px;object-fit:cover;border-radius:10px;border:1px solid var(--line)}
+.item{display:flex;align-items:center;gap:8px;padding:9px 0;border-top:1px solid var(--line)}
+.item:first-of-type{border-top:0}
+.item .n{flex:1;min-width:0}
+.item .q{color:var(--mut);font-size:13px}
+.tag{font-size:12px;padding:2px 8px;border-radius:99px;border:1px solid var(--line);color:var(--mut);white-space:nowrap}
+.tag.pouco{color:var(--warn);border-color:var(--warn)}
+.tag.falta{color:var(--bad);border-color:var(--bad)}
+.x{border:0;background:none;color:var(--mut);font-size:18px;cursor:pointer;padding:4px 8px}
+input[type=number]{font:inherit;padding:9px 12px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink);min-width:0}
+#bud{flex:1}
+.track{height:10px;border-radius:99px;background:var(--line);margin:14px 0 8px;overflow:hidden}
+.fill{height:100%;background:var(--acc);border-radius:99px}
+.fill.over{background:var(--bad)}
+input[type=text],input[type=password]{flex:1;min-width:0;font:inherit;padding:9px 12px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink)}
+.msg{font-size:14px;color:var(--mut);margin:8px 0 0}
+.err{color:var(--bad)}
+.done .n{text-decoration:line-through;color:var(--mut)}
+input[type=checkbox]{width:20px;height:20px;accent-color:var(--acc)}
+.empty{color:var(--mut);font-size:14px;padding:6px 0}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.chip{display:inline-flex;align-items:center;border:1px solid var(--line);border-radius:99px;padding:3px 4px 3px 11px;font-size:14px}
+</style>
+<link rel="manifest" href="/manifest.webmanifest"><meta name="theme-color" content="#2f7d5b"><link rel="apple-touch-icon" href="/icon-192.png"><meta name="apple-mobile-web-app-capable" content="yes">
+</head>
+<body>
+<main>
+  <h1>Despensa &amp; Compras</h1>
+  <p class="sub">Fotografe o frigorífico, o congelador e a despensa. A lista de compras faz-se sozinha.</p>
+  <div id="bar"></div>
+  <nav class="tabs" id="tabs"></nav>
+  <div id="view"></div>
+</main>
+<script>
+const ZONES=[["fri","Frigorífico"],["cong","Congelador"],["desp","Despensa"]];
+const BASE="casa-compras-v1",ACC="casa-contas-v1",SES="casa-sessao-v1";
+let KEY=null,user=null,mode="login",aerr="";
+const DEF=()=>({zones:{fri:{items:[]},cong:{items:[]},desp:{items:[]}},essentials:["Leite","Ovos","Pão","Fruta","Arroz","Massa","Azeite"],manual:[],bought:{},budget:null,prices:{}});
+let S=DEF();
+const getAcc=()=>{try{return JSON.parse(localStorage.getItem(ACC))||{}}catch(e){return{}}};
+const setAcc=a=>{try{localStorage.setItem(ACC,JSON.stringify(a))}catch(e){}};
+async function hashPw(pw,salt){const enc=new TextEncoder();const k=await crypto.subtle.importKey("raw",enc.encode(pw),"PBKDF2",false,["deriveBits"]);const b=await crypto.subtle.deriveBits({name:"PBKDF2",salt:enc.encode(salt),iterations:100000,hash:"SHA-256"},k,256);return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,"0")).join("")}
+function enter(login,name,migrate){
+  user={login,name};KEY=BASE+":"+login;S=DEF();
+  try{let r=localStorage.getItem(KEY);if(!r&&migrate){r=localStorage.getItem(BASE)}if(r)S=Object.assign(DEF(),JSON.parse(r));localStorage.setItem(SES,login)}catch(e){}
+  save();tab="lista";render();
+}
+function logout(){user=null;KEY=null;S=DEF();aerr="";mode="login";try{localStorage.removeItem(SES)}catch(e){}render()}
+function renderAuth(){
+  $("#tabs").innerHTML="";$("#bar").innerHTML="";
+  const su=mode==="signup";
+  $("#view").innerHTML=`<div class="card"><h2>${su?"Criar conta":"Entrar"}</h2>
+  <form id="af" style="display:grid;gap:10px">
+  ${su?'<input type="text" id="an" placeholder="Nome" autocomplete="name" required>':""}
+  <input type="text" id="al" placeholder="Utilizador (login)" autocomplete="username" autocapitalize="none" required>
+  <input type="password" id="ap" placeholder="Palavra-passe" autocomplete="${su?"new-password":"current-password"}" required>
+  ${su?'<input type="password" id="ap2" placeholder="Repetir palavra-passe" autocomplete="new-password" required>':""}
+  <button class="btn pri" type="submit">${su?"Criar conta":"Entrar"}</button></form>
+  <div class="msg err">${esc(aerr)}</div>
+  <div class="row" style="margin-top:10px"><button type="button" class="btn" id="sw">${su?"Já tenho conta":"Criar conta nova"}</button></div></div>
+  <p class="sub">As contas ficam guardadas só neste dispositivo e a palavra-passe é guardada cifrada. Não há recuperação: se a esquecer, terá de criar outra conta.</p>`;
+  $("#sw").onclick=()=>{mode=su?"login":"signup";aerr="";renderAuth()};
+  $("#af").onsubmit=async e=>{
+    e.preventDefault();aerr="";
+    const login=$("#al").value.trim().toLowerCase(),pw=$("#ap").value,acc=getAcc();
+    try{
+      if(su){
+        const name=$("#an").value.trim();
+        if(!/^[a-z0-9._-]{3,}$/.test(login))aerr="O utilizador deve ter 3 ou mais caracteres (letras, números, . _ -).";
+        else if(pw.length<6)aerr="A palavra-passe deve ter pelo menos 6 caracteres.";
+        else if(pw!==$("#ap2").value)aerr="As palavras-passe não coincidem.";
+        else if(acc[login])aerr="Esse utilizador já existe.";
+        if(aerr)return renderAuth();
+        const first=Object.keys(acc).length===0;
+        const salt=[...crypto.getRandomValues(new Uint8Array(12))].map(x=>x.toString(16)).join("");
+        acc[login]={name,salt,hash:await hashPw(pw,salt)};setAcc(acc);
+        enter(login,name,first);
+      }else{
+        const a=acc[login];
+        if(!a||(await hashPw(pw,a.salt))!==a.hash){aerr="Utilizador ou palavra-passe incorretos.";return renderAuth()}
+        enter(login,a.name,false);
+      }
+    }catch(err){aerr="Não foi possível concluir. Tente novamente.";renderAuth()}
+  };
+}
+let tab="lista",pending={fri:[],cong:[],desp:[]},busy=null,msg={};
+const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}};
+const norm=s=>s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").trim();
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const $=s=>document.querySelector(s);
+
+function shopping(){
+  const all=ZONES.flatMap(([k])=>S.zones[k].items);
+  const out=[];
+  all.filter(i=>i.estado==="pouco").forEach(i=>out.push({nome:i.nome,why:"quase a acabar"}));
+  S.essentials.forEach(e=>{
+    const n=norm(e);
+    const has=all.some(i=>{const m=norm(i.nome);return m.includes(n)||n.includes(m)});
+    if(!has)out.push({nome:e,why:"em falta"});
+  });
+  S.manual.forEach(m=>out.push({nome:m,why:"adicionado por si"}));
+  const seen=new Set();
+  return out.filter(i=>{const k=norm(i.nome);if(seen.has(k))return false;seen.add(k);return true});
+}
+
+function render(){
+  if(!user)return renderAuth();
+  $("#bar").innerHTML=`<div class="row" style="justify-content:space-between;margin-bottom:10px"><span style="font-size:15px">Olá, <b>${esc(user.name)}</b></span><button class="btn" id="out">Sair</button></div>`;
+  $("#out").onclick=logout;
+  $("#tabs").innerHTML=[["lista","Compras"],["orc","Orçamento"],...ZONES].map(([k,l])=>`<button class="${tab===k?"on":""}" data-t="${k}">${l}</button>`).join("");
+  $("#tabs").querySelectorAll("button").forEach(b=>b.onclick=()=>{tab=b.dataset.t;render()});
+  $("#view").innerHTML=tab==="lista"?viewList():tab==="orc"?viewBudget():viewZone(tab);
+  bind();
+}
+
+function viewList(){
+  const L=shopping();
+  const rows=L.map(i=>{const k=norm(i.nome),d=S.bought[k];
+    return `<div class="item ${d?"done":""}"><input type="checkbox" data-b="${esc(k)}" ${d?"checked":""}><div class="n">${esc(i.nome)}</div><span class="tag ${i.why==="em falta"?"falta":i.why==="quase a acabar"?"pouco":""}">${i.why}</span></div>`}).join("");
+  return `<div class="card"><h2>Lista de compras</h2>${rows||'<div class="empty">Nada em falta. Analise uma foto ou acrescente itens abaixo.</div>'}
+  <div class="row" style="margin-top:10px"><input type="text" id="man" placeholder="Acrescentar item…"><button class="btn" id="addman">Adicionar</button></div>
+  <div class="row" style="margin-top:10px"><button class="btn" id="copy">Copiar lista</button><button class="btn" id="clr">Limpar riscados</button></div></div>
+  <div class="card"><h2>Essenciais da casa</h2><div class="sub" style="margin:0">Se não aparecerem em nenhuma foto, entram na lista.</div>
+  <div class="chips">${S.essentials.map((e,i)=>`<span class="chip">${esc(e)}<button class="x" data-re="${i}" style="padding:0 6px">×</button></span>`).join("")}</div>
+  <div class="row" style="margin-top:10px"><input type="text" id="ess" placeholder="Novo essencial…"><button class="btn" id="addess">Adicionar</button></div></div>`;
+}
+
+function viewZone(k){
+  const z=S.zones[k],name=ZONES.find(a=>a[0]===k)[1],p=pending[k];
+  const rows=z.items.map((i,ix)=>`<div class="item"><div class="n">${esc(i.nome)}<div class="q">${esc(i.qtd||"")}</div></div><span class="tag ${i.estado==="pouco"?"pouco":""}" data-tog="${ix}" style="cursor:pointer">${i.estado==="pouco"?"pouco":"ok"}</span><button class="x" data-rm="${ix}">×</button></div>`).join("");
+  return `<div class="card"><h2>Fotografar: ${name}</h2>
+  <div class="row"><label class="btn pri" style="cursor:pointer">📷 Tirar / escolher fotos<input id="file" type="file" accept="image/*" multiple hidden></label>
+  <button class="btn" id="go" ${p.length&&!busy?"":"disabled"}>${busy===k?"A analisar…":"Analisar"}</button></div>
+  <div class="thumbs">${p.map(u=>`<img src="${u.url}" alt="">`).join("")}</div>
+  <div class="msg ${msg[k]&&msg[k].err?"err":""}">${msg[k]?esc(msg[k].t):"Dica: abra a porta e fotografe prateleira a prateleira, com boa luz."}</div></div>
+  <div class="card"><h2>Importar lista (colar texto)</h2><div class="sub" style="margin:0 0 8px">Envie a foto ao Claude na conversa, copie a lista que ele devolver e cole aqui. Substitui os itens desta zona.</div><textarea id="imp" placeholder="- Ovos: cerca de 6&#10;- Cenouras: 6&#10;- Leite: 1" style="width:100%;min-height:110px;font:inherit;padding:9px 12px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink)"></textarea><div class="row" style="margin-top:8px"><button class="btn pri" id="impgo">Importar lista</button></div></div>
+  <div class="card"><h2>O que tenho${z.items.length?` (${z.items.length})`:""}</h2>${rows||'<div class="empty">Ainda sem itens. Toque no estado para alternar entre ok e pouco.</div>'}
+  <div class="row" style="margin-top:10px"><input type="text" id="add" placeholder="Acrescentar item manualmente…"><button class="btn" id="addit">Adicionar</button></div></div>`;
+}
+
+function bind(){
+  document.querySelectorAll("[data-b]").forEach(c=>c.onchange=()=>{S.bought[c.dataset.b]=c.checked;save();render()});
+  const on=(id,fn)=>{const e=$(id);if(e)e.onclick=fn};
+  const addTo=(inp,fn)=>{const v=$(inp).value.trim();if(v){fn(v);save();render()}};
+  on("#addman",()=>addTo("#man",v=>S.manual.push(v)));
+  on("#addess",()=>addTo("#ess",v=>S.essentials.push(v)));
+  document.querySelectorAll("[data-re]").forEach(b=>b.onclick=()=>{S.essentials.splice(+b.dataset.re,1);save();render()});
+  on("#clr",()=>{const L=shopping();S.manual=S.manual.filter(m=>!S.bought[norm(m)]);S.bought={};save();render()});
+  on("#copy",async()=>{const t=shopping().filter(i=>!S.bought[norm(i.nome)]).map(i=>"• "+i.nome).join("\n");try{await navigator.clipboard.writeText(t);$("#copy").textContent="Copiada ✓"}catch(e){$("#copy").textContent="Não foi possível copiar"}});
+  if(tab==="orc"){bindBudget();return}
+  if(tab!=="lista"){
+    const k=tab;
+    $("#file").onchange=e=>{[...e.target.files].forEach(f=>pending[k].push({blob:f,url:URL.createObjectURL(f)}));msg[k]=null;render()};
+    on("#go",()=>analyse(k));
+    on("#impgo",()=>{const it=parseList($("#imp").value);if(!it.length){msg[k]={err:true,t:"Não encontrei itens no texto colado."};return render()}S.zones[k].items=it;save();msg[k]={t:`Importei ${it.length} itens. Corrija o que estiver errado.`};render()});
+    on("#addit",()=>addTo("#add",v=>S.zones[k].items.push({nome:v,qtd:"",estado:"ok"})));
+    document.querySelectorAll("[data-rm]").forEach(b=>b.onclick=()=>{S.zones[k].items.splice(+b.dataset.rm,1);save();render()});
+    document.querySelectorAll("[data-tog]").forEach(b=>b.onclick=()=>{const i=S.zones[k].items[+b.dataset.tog];i.estado=i.estado==="pouco"?"ok":"pouco";save();render()});
+  }
+}
+
+const fmt=n=>n.toLocaleString("pt-PT",{minimumFractionDigits:2,maximumFractionDigits:2})+" €";
+function viewBudget(){
+  const L=shopping().filter(i=>!S.bought[norm(i.nome)]);
+  let tot=0,miss=0;
+  const rows=L.map(i=>{const k=norm(i.nome),p=S.prices[k];if(p&&p.v>0)tot+=p.v;else miss++;
+    return `<div class="item"><div class="n">${esc(i.nome)}${p&&p.e?'<div class="q">estimativa IA</div>':""}</div><input type="number" min="0" step="0.01" inputmode="decimal" data-p="${esc(k)}" value="${p&&p.v?p.v:""}" placeholder="€" style="width:90px;flex:none"><span class="q">€</span></div>`}).join("");
+  const b=S.budget,left=b==null?null:b-tot,pct=b>0?Math.min(100,tot/b*100):0;
+  const res=b==null?'<div class="msg">Defina um valor para ver as contas.</div>':`<div class="track"><div class="fill ${left<0?"over":""}" style="width:${pct}%"></div></div><div class="row" style="justify-content:space-between"><span>Estimado: <b>${fmt(tot)}</b></span><span style="color:${left<0?"var(--bad)":"var(--acc)"}">${left<0?"Excede "+fmt(-left):"Sobram "+fmt(left)}</span></div>`;
+  return `<div class="card"><h2>Orçamento para as compras</h2><div class="row"><input type="number" id="bud" min="0" step="0.01" inputmode="decimal" placeholder="Quanto quer gastar (€)" value="${b==null?"":b}"><button class="btn pri" id="savebud">Guardar</button></div>${res}${miss?`<div class="msg">${miss} item(ns) sem preço, por isso o total está incompleto.</div>`:""}</div>
+  <div class="card"><h2>Preços da lista</h2>${rows||'<div class="empty">A lista de compras está vazia.</div>'}
+  <div class="row" style="margin-top:10px"><button class="btn" id="est" ${miss&&!busy?"":"disabled"}>${busy==="orc"?"A estimar…":"Estimar preços em falta (IA)"}</button></div>
+  <div class="msg ${msg.orc&&msg.orc.err?"err":""}">${msg.orc?esc(msg.orc.t):"Os preços ficam guardados e são reutilizados. Pode corrigir qualquer valor."}</div></div>`;
+}
+function bindBudget(){
+  $("#savebud").onclick=()=>{const v=parseFloat($("#bud").value);S.budget=isNaN(v)||v<0?null:v;save();render()};
+  document.querySelectorAll("[data-p]").forEach(i=>i.onchange=()=>{const v=parseFloat(i.value);if(isNaN(v)||v<=0)delete S.prices[i.dataset.p];else S.prices[i.dataset.p]={v:Math.round(v*100)/100,e:false};save();render()});
+  $("#est").onclick=estimate;
+}
+async function estimate(){
+  const L=shopping().filter(i=>{const p=S.prices[norm(i.nome)];return !S.bought[norm(i.nome)]&&!(p&&p.v>0)});
+  busy="orc";msg.orc={t:"A estimar…"};render();
+  try{
+    const d=(await api({action:"estimate",names:L.map(i=>i.nome)})).precos||{};
+    let n=0;L.forEach(i=>{const v=parseFloat(d[i.nome]);if(v>0){S.prices[norm(i.nome)]={v:Math.round(v*100)/100,e:true};n++}});
+    save();msg.orc={t:`Estimei ${n} preços. São valores aproximados; corrija-os com os preços reais da sua loja.`};
+  }catch(e){msg.orc={err:true,t:"Não consegui estimar os preços. Pode preenchê-los à mão."}}
+  busy=null;render();
+}
+function parseList(t){
+  const B=/^([-•*–]|\d+[.)])\s+/;
+  const lines=t.split(/\r?\n/).map(l=>l.trim()).filter(Boolean);
+  const bul=lines.filter(l=>B.test(l));
+  return (bul.length?bul:lines).map(l=>l.replace(B,"").replace(/\*\*|__/g,"").trim()).filter(Boolean).map(l=>{
+    const i=l.indexOf(":");let nome=l,qtd="";
+    if(i>0){nome=l.slice(0,i).trim();qtd=l.slice(i+1).trim()}
+    nome=nome.replace(/\s*\(.*?\)\s*/g," ").trim();
+    return {nome:nome.slice(0,60),qtd:qtd.slice(0,60),estado:/pouco|a acabar|quase (vazi|a acab)/i.test(l)?"pouco":"ok"};
+  }).filter(i=>i.nome);
+}
+const CODE_KEY="casa-codigo";
+function toB64(b){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result.split(",")[1]);r.onerror=rej;r.readAsDataURL(b)})}
+async function api(body){
+  let code="";try{code=localStorage.getItem(CODE_KEY)||""}catch(e){}
+  if(!code){code=(prompt("Código de acesso da app:")||"").trim();if(!code)throw new Error("Falta o código de acesso.");try{localStorage.setItem(CODE_KEY,code)}catch(e){}}
+  const r=await fetch("/api/ai",{method:"POST",headers:{"Content-Type":"application/json","x-access-code":code},body:JSON.stringify(body)});
+  const j=await r.json().catch(()=>({}));
+  if(r.status===401){try{localStorage.removeItem(CODE_KEY)}catch(e){}throw new Error("Código de acesso incorreto. Tente de novo.")}
+  if(!r.ok)throw new Error(j.error||"Erro no servidor.");
+  return j;
+}
+function shrink(blob,max=1280){
+  return new Promise((res,rej)=>{const im=new Image(),u=URL.createObjectURL(blob);
+    im.onload=()=>{const r=Math.min(1,max/Math.max(im.width,im.height)),c=document.createElement("canvas");
+      c.width=Math.round(im.width*r);c.height=Math.round(im.height*r);c.getContext("2d").drawImage(im,0,0,c.width,c.height);
+      c.toBlob(b=>b?res(b):rej(new Error("img")),"image/jpeg",.8);URL.revokeObjectURL(u)};
+    im.onerror=()=>rej(new Error("img"));im.src=u});
+}
+
+async function analyse(k){
+  const name=ZONES.find(a=>a[0]===k)[1];
+  busy=k;msg[k]={t:"A pedir ao Claude para ver as fotos…"};render();
+  try{
+    const imgs=await Promise.all(pending[k].map(p=>shrink(p.blob)));
+    const images=await Promise.all(imgs.map(toB64));
+    const data=await api({action:"analyze",zone:name,images});
+    const items=(data.itens||[]).filter(i=>i&&i.nome).map(i=>({nome:String(i.nome),qtd:String(i.qtd||""),estado:i.estado==="pouco"?"pouco":"ok"}));
+    S.zones[k].items=items;save();
+    pending[k]=[];msg[k]={t:`Encontrei ${items.length} itens. Corrija o que estiver errado.`};
+  }catch(e){
+    const c=e&&e.code;
+    msg[k]={err:true,t:c==="not_granted"?"Sem permissão para usar a IA nesta página.":c==="rate_limited"?"Demasiados pedidos. Tente daqui a pouco.":"Não consegui analisar as fotos. "+(e&&e.message?e.message:"")};
+  }
+  busy=null;render();
+}
+(function boot(){
+  try{const l=localStorage.getItem(SES),a=getAcc()[l];if(a)return enter(l,a.name,false)}catch(e){}
+  render();
+})();
+</script>
+<script>if("serviceWorker"in navigator)addEventListener("load",()=>navigator.serviceWorker.register("/sw.js").catch(()=>{}))</script>
+</body>
+</html>
